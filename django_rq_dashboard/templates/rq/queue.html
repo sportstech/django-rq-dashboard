@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n admin_static %}
+{% load i18n admin_static admin_list %}
 
 {% block content_title %}<h1>{{ title }}</h1>{% endblock %}
 
@@ -19,6 +19,7 @@
 
 {% block content %}
 	<div id="content-main">
+    {% pagination cl %}
 		<div class="module">
 			<table id="rq">
 				<caption>{% trans "Jobs" %}</caption>
@@ -51,5 +52,6 @@
 			</table>
 		</div>
 		{% include "rq/queue_actions.html" %}
+
 	</div>
 {% endblock %}
