@@ -15,7 +15,8 @@ from django.utils.http import urlencode
 from django.utils.translation import ugettext_lazy as _, ugettext as __
 from django.views import generic
 
-from rq import Queue, Worker, get_failed_queue, push_connection
+from rq import Queue, Worker, get_failed_queue, push_connection, \
+    requeue_job, cancel_job
 from rq.exceptions import NoSuchJobError
 from rq.job import Job
 
@@ -137,7 +138,7 @@ class JobList(list):
         self._queue = queue
 
     def __getslice__(self, i, j):
-        return [serialize_job(job) for job in self._queue.get_jobs(i, j)]
+        return [serialize_job(job) for job in self._queue.get_jobs(i, j - i)]
 
     def __iter__(self):
         return (serialize_job(job) for job in self._queue.jobs)
@@ -191,7 +192,7 @@ class SimpleChangeList(object):
 class QueueDetails(SuperUserMixin, generic.ListView, generic.FormView):
     template_name = 'rq/queue.html'
     form_class = QueueForm
-    paginate_by = 100
+    paginate_by = 500
     page_kwarg = PAGE_VAR
 
     def get(self, request, *args, **kwargs):
@@ -240,13 +241,41 @@ class QueueDetails(SuperUserMixin, generic.ListView, generic.FormView):
 
     def form_valid(self, form):
         form.save()
+        action = form.cleaned_data
+
+        if action == 'cancel_selected':
+            # django forms don't support "getlist"
+            job_ids = self.request.POST.getlist('_selected_action')
+            for job_id in job_ids:
+                cancel_job(job_id, self.connection)
+
+            # this has the side effect of flushing the canceled jobs,
+            # otherwise on redirect you may get an empty list..
+            form.queue.get_jobs(0, len(job_ids))
+        elif action == 'requeue_selected':
+            job_ids = self.request.POST.getlist('_selected_action')
+            for job_id in job_ids:
+                requeue_job(job_id, self.connection)
+            form.queue.get_jobs(0, len(job_ids))
+
         msgs = {
             'compact': __('Queue compacted'),
             'empty': __('Queue emptied'),
             'requeue': __('Jobs requeued'),
+            'cancel_selected': __('Selected jobs canceled'),
+            'requeue_selected': __('Selected jobs requeued'),
         }
-        messages.success(self.request, msgs[form.cleaned_data])
+        messages.success(self.request, msgs[action])
         return super(QueueDetails, self).form_valid(form)
+
+    def form_invalid(self, form):
+        """
+        If the form is invalid, re-render the context data with the
+        data-filled form and errors.
+        """
+        self.kwargs['form'] = form
+        return self.get(self.request)
+
 queue = QueueDetails.as_view()
 
 

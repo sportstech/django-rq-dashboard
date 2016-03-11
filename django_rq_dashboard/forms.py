@@ -14,10 +14,18 @@ class QueueForm(ActionForm):
     requeue = forms.CharField(required=False)
     compact = forms.CharField(required=False)
     empty = forms.CharField(required=False)
+    cancel_selected = forms.CharField(required=False)
+    requeue_selected = forms.CharField(required=False)
 
     def __init__(self, *args, **kwargs):
         self.queue = kwargs.pop('queue')
         super(QueueForm, self).__init__(*args, **kwargs)
+
+    def clean_cancel_selected(self):
+        return bool(self.cleaned_data['cancel_selected'])
+
+    def clean_requeue_selected(self):
+        return bool(self.cleaned_data['requeue_selected'])
 
     def clean_requeue(self):
         return bool(self.cleaned_data['requeue'])
