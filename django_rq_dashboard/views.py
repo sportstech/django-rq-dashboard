@@ -1,20 +1,20 @@
 import pytz
-import redis
 from itertools import groupby
 
 from django.contrib import messages
+from django.contrib.admin.views.decorators import user_passes_test
 from django.contrib.admin.views.main import PAGE_VAR, ERROR_FLAG
 from django.conf import settings
-from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.utils.http import urlencode
 from django.utils.translation import ugettext_lazy as _, ugettext as __
 from django.views import generic
-
-from rq import Queue, Worker, get_failed_queue, push_connection, \
+import redis
+from rq import Connection, Queue, Worker, get_failed_queue, \
     requeue_job, cancel_job
 from rq.exceptions import NoSuchJobError
 from rq.job import Job
@@ -79,16 +79,17 @@ def serialize_scheduled_queues(queue):
 
 
 class SuperUserMixin(object):
-    def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_superuser:
-            raise PermissionDenied
+    connection = None
 
+    @method_decorator(user_passes_test(lambda u: u.is_superuser))
+    def dispatch(self, request, *args, **kwargs):
         opts = getattr(settings, 'RQ', {}).copy()
         opts.pop('eager', None)
-        self.connection = redis.Redis(**opts)
-        push_connection(self.connection)
 
-        return super(SuperUserMixin, self).dispatch(request, *args, **kwargs)
+        with Connection(connection=redis.Redis(**opts)) as connection:
+            self.connection = connection
+            return super(SuperUserMixin, self).dispatch(
+                request, *args, **kwargs)
 
 
 class Stats(SuperUserMixin, generic.TemplateView):
@@ -115,10 +116,15 @@ class Stats(SuperUserMixin, generic.TemplateView):
     def render_to_response(self, context, **response_kwargs):
         if self.request.is_ajax():
             data = {
-                'queues': [serialize_queue(q) for q in context['queues']],
-                'workers': [serialize_worker(w) for w in context['workers']],
-                'scheduled_queues': [serialize_scheduled_queues(q)
-                                     for q in context.get('scheduled_queues', [])],
+                'queues': [
+                    serialize_queue(q)
+                    for q in context['queues']],
+                'workers': [
+                    serialize_worker(w)
+                    for w in context['workers']],
+                'scheduled_queues': [
+                    serialize_scheduled_queues(q)
+                    for q in context.get('scheduled_queues', [])],
             }
             return JsonResponse(data)
         return super(Stats, self).render_to_response(context,
@@ -132,6 +138,7 @@ class JobList(list):
 
     def __init__(self, queue):
         self._queue = queue
+        super(JobList, self).__init__()
 
     def __getslice__(self, i, j):
         return [serialize_job(job) for job in self._queue.get_jobs(i, j - i)]
@@ -279,8 +286,8 @@ class JobDetails(SuperUserMixin, generic.FormView):
 
     def get_form_kwargs(self):
         kwargs = super(JobDetails, self).get_form_kwargs()
-        self.job = Job.fetch(self.kwargs['job'], connection=self.connection)
-        kwargs['job'] = self.job
+        kwargs['job'] = Job.fetch(
+            self.kwargs['job'], connection=self.connection)
         return kwargs
 
     def get_context_data(self, **kwargs):
@@ -339,7 +346,7 @@ class SchedulerDetails(SuperUserMixin, generic.TemplateView):
         queue = Queue(self.kwargs['queue'], connection=self.connection)
 
         def cond(job_tuple):
-            job, next_run = job_tuple
+            job, _ = job_tuple
             return job.origin == queue.name
         jobs = filter(cond, scheduler.get_jobs(with_times=True))
 
