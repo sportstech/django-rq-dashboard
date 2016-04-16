@@ -1,4 +1,3 @@
-import json
 import pytz
 import redis
 from itertools import groupby
@@ -8,7 +7,7 @@ from django.contrib.admin.views.main import PAGE_VAR, ERROR_FLAG
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
-from django.http import Http404, HttpResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.http import urlencode
@@ -115,18 +114,15 @@ class Stats(SuperUserMixin, generic.TemplateView):
 
     def render_to_response(self, context, **response_kwargs):
         if self.request.is_ajax():
-            data = json.dumps({
+            data = {
                 'queues': [serialize_queue(q) for q in context['queues']],
                 'workers': [serialize_worker(w) for w in context['workers']],
                 'scheduled_queues': [serialize_scheduled_queues(q)
                                      for q in context.get('scheduled_queues', [])],
-            })
-            return HttpResponse(
-                data, content_type='application/json; charset=UTF-8',
-            )
+            }
+            return JsonResponse(data)
         return super(Stats, self).render_to_response(context,
                                                      **response_kwargs)
-stats = Stats.as_view()
 
 
 class JobList(list):
@@ -276,8 +272,6 @@ class QueueDetails(SuperUserMixin, generic.ListView, generic.FormView):
         self.kwargs['form'] = form
         return self.get(self.request)
 
-queue = QueueDetails.as_view()
-
 
 class JobDetails(SuperUserMixin, generic.FormView):
     template_name = 'rq/job.html'
@@ -316,7 +310,6 @@ class JobDetails(SuperUserMixin, generic.FormView):
         }
         messages.success(self.request, msgs[form.cleaned_data])
         return redirect(reverse('rq_queue', args=[queue]))
-job = JobDetails.as_view()
 
 
 class WorkerDetails(SuperUserMixin, generic.TemplateView):
@@ -332,7 +325,6 @@ class WorkerDetails(SuperUserMixin, generic.TemplateView):
             'title': _('Worker %s') % worker.name,
         })
         return ctx
-worker = WorkerDetails.as_view()
 
 
 class SchedulerDetails(SuperUserMixin, generic.TemplateView):
@@ -359,5 +351,3 @@ class SchedulerDetails(SuperUserMixin, generic.TemplateView):
             'title': "Jobs scheduled on '%s' queue" % queue.name,
         })
         return ctx
-
-scheduler = SchedulerDetails.as_view()
