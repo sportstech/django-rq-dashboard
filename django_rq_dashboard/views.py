@@ -54,10 +54,14 @@ def serialize_queue(queue):
 
 
 def serialize_worker(worker):
+    state = worker.get_state()
+    if isinstance(state, bytes):  # Python 2 only
+        state = state.decode("utf-8")
+
     return dict(
         name=worker.name,
         queues=[q.name for q in worker.queues],
-        state=worker.get_state().decode('utf-8'),
+        state=state,
         url=reverse('rq_worker', args=[worker.name]),
     )
 
