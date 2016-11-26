@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# encoding: utf-8
 from distutils.core import setup
 from setuptools import find_packages
 
@@ -16,7 +15,7 @@ setup(
     url='https://github.com/brutasse/django-rq-dashboard',
     license='BSD licence, see LICENCE file',
     description='A dashboard for managing RQ in the Django admin',
-    long_description=open('README.rst').read(),
+    long_description=open('README.rst', "r", encoding="utf-8").read(),
     install_requires=[
         'pytz',
         'rq',
