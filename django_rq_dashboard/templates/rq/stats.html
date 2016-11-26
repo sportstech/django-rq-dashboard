@@ -8,13 +8,6 @@
 	<style>table {width: 100%;}</style>
 {% endblock %}
 
-{% block extrahead %}
-	{{ block.super }}
-	<script type="text/javascript" src="{% static "rq/jquery.js" %}"></script>
-	<script type="text/javascript" src="{% static "rq/underscore.js" %}"></script>
-	<script type="text/javascript" src="{% static "rq/rqdashboard.js" %}"></script>
-{% endblock %}
-
 {% block bodyclass %}dashboard{% endblock %}
 
 {% block content %}
@@ -127,4 +120,7 @@
 			<td><%= job_count %></td>
 		</tr>
 	</script>
+
+	<script type="text/javascript" src="{% static "rq/underscore.js" %}"></script>
+	<script type="text/javascript" src="{% static "rq/rqdashboard.js" %}"></script>
 {% endblock %}

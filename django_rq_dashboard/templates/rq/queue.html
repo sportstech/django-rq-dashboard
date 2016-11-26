@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n admin_static %}
+{% load i18n admin_static admin_list %}
 
 {% block content_title %}<h1>{{ title }}</h1>{% endblock %}
 
@@ -7,6 +7,17 @@
 	{{ block.super }}
 	<style>table {width: 100%;}</style>
 	<link rel="stylesheet" type="text/css" href="{% static "admin/css/forms.css" %}">
+{% endblock %}
+
+{% block extrahead %}
+<script type="text/javascript" src="{% static "admin/js/actions.js" %}"></script>
+<script type="text/javascript" charset="utf-8">
+    (function($) {
+        $(document).ready(function() {
+            $("tr input.action-select").actions();
+        });
+    })(django.jQuery);
+</script>
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -18,12 +29,31 @@
 {% endblock %}
 
 {% block content %}
+
+  {% if form.errors and not form.non_field_errors %}
+  <p class="errornote">
+  {% if form.errors.items|length == 1 %}{% trans "Please correct the error below." %}{% else %}{% trans "Please correct the errors below." %}{% endif %}
+  </p>
+  {% endif %}
+
+  {% if form.non_field_errors %}
+  {% for error in form.non_field_errors %}
+  <p class="errornote">
+      {{ error }}
+  </p>
+  {% endfor %}
+  {% endif %}
+  <br clear="both"/>
+
 	<div id="content-main">
+    <form method="post" action="{% url "rq_queue" queue.name %}">
 		<div class="module">
+      {% pagination cl %}
 			<table id="rq">
 				<caption>{% trans "Jobs" %}</caption>
 				<thead>
 					<tr>
+            <th><input type="checkbox" id="action-toggle"/></th>
 						<th>{% trans "Job ID" %}</th>
 						<th>{% trans "Description" %}</th>
 						<th>{% trans "Date created" %}</th>
@@ -36,6 +66,7 @@
 				<tbody>
 					{% for job in jobs %}
 						<tr class="{% cycle "row2" "row1" %}">
+              <td><input class="action-select" type="checkbox" name="_selected_action" value="{{job.id}}"/></td>
 							<td><a href="{% url "rq_job" job.id %}">{{ job.id }}</a></td>
 							<td>{{ job.description }}</td>
 							<td title="{{ job.created_at }}">{% blocktrans with time=job.created_at|timesince %}{{ time }} ago{% endblocktrans %}</td>
@@ -51,5 +82,7 @@
 			</table>
 		</div>
 		{% include "rq/queue_actions.html" %}
+    </form>
+
 	</div>
 {% endblock %}

@@ -1,11 +1,13 @@
 {% load i18n %}
-{% if jobs %}<form method="post" action="{% url "rq_queue" queue.name %}">
+{% if jobs %}
 	{% csrf_token %}
 	<div class="submit-row">
 		{% if failed %}
 			<input type="submit" name="requeue" value="{% trans "Requeue all" %}">
+			<input type="submit" name="requeue_selected" value="{% trans "Requeue selected" %}">
 		{% endif %}
 		<input type="submit" name="compact" value="{% trans "Compact queue" %}">
+		<input type="submit" name="cancel_selected" value="{% trans "Cancel selected" %}">
 		<input type="submit" name="empty" value="{% trans "Empty queue" %}">
 	</div>
-</form>{% endif %}
+{% endif %}
